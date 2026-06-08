@@ -24,9 +24,10 @@ public:
     static Response ok(const std::string& body, const std::string& content_type = "text/plain");
     static Response json(const std::string& body);
     static Response html(const std::string& body);
-    static Response not_found(const std::string& msg = "404 Not Found");
-    static Response bad_request(const std::string& msg = "400 Bad Request");
-    static Response server_error(const std::string& msg = "500 Internal Server Error");
+    
+    static Response not_found(std::string msg = "404 Not Found");
+    static Response bad_request(std::string msg = "400 Bad Request");
+    static Response server_error(std::string msg = "500 Internal Server Error");
 
 private:
     int status_code_ = 200;

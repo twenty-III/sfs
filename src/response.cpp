@@ -24,7 +24,7 @@ void Response::set_header(const std::string& key, const std::string& value) {
         std::cerr << "[Warning] Skipped manual override of restricted header '" << key << "'." << '\n';
         return;
     }
-    headers_[to_lower_str(key)] = value;
+    headers_[lower_key] = value;
 }
 
 void Response::set_body(std::string body) {
@@ -62,26 +62,26 @@ Response Response::html(const std::string& body) {
     return ok(body, "text/html");
 }
 
-Response Response::not_found(const std::string& msg) {
+Response Response::not_found(std::string msg) {
     Response res;
     res.set_status(404);
     res.set_header("content-type", "text/plain");
-    res.set_body(msg);
+    res.set_body(std::move(msg));
     return res;
 }
 
-Response Response::bad_request(const std::string& msg) {
+Response Response::bad_request(std::string msg) {
     Response res;
     res.set_status(400);
     res.set_header("content-type", "text/plain");
-    res.set_body(msg);
+    res.set_body(std::move(msg));
     return res;
 }
 
-Response Response::server_error(const std::string& msg) {
+Response Response::server_error(std::string msg) {
     Response res;
     res.set_status(500);
     res.set_header("content-type", "text/plain");
-    res.set_body(msg);
+    res.set_body(std::move(msg));
     return res;
 }
