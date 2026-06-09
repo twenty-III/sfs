@@ -1,59 +1,45 @@
 #include <router.hpp>
+#include <string_utils.hpp>
 
 #include <string>
 #include <vector>
 #include <sstream>
 #include <iostream>
 #include <stdexcept>
+#include <unordered_map>
 
-namespace {
-    std::vector<std::string> split_path(const std::string& path) {
-        std::vector<std::string> parts;
-
-        std::stringstream ss(path);
-        std::string seg;
-        while (getline(ss, seg, '/')) {
-            if (!seg.empty()) parts.push_back(seg);
-        }
-
-        return parts;
-    }
-}
-
-void Router::add_route(const std::string& method, const std::string& path, Handler handler) {
+void Router::add_route(std::string method, std::string path, Handler handler) {
     Route new_route;
-    new_route.method = method;
-    new_route.pattern = path;
+    new_route.method = std::move(method);
+    new_route.pattern = std::move(path);
     new_route.handler = std::move(handler);
 
-    for (const std::string& seg : split_path(path)) {
-        if (seg[0] == ':') {
-            new_route.params.push_back(seg.substr(1));
-        }
+    for (const std::string& seg : split_str(new_route.pattern, '/')) {
+        if (seg[0] == ':') new_route.params.push_back(seg.substr(1));
     }
 
     routes_.push_back(new_route);
 }
 
-void Router::get(const std::string& path, Handler handler) {
-    add_route("GET", path, std::move(handler));
+void Router::get(std::string path, Handler handler) {
+    add_route("GET", std::move(path), std::move(handler));
 }
 
-void Router::put(const std::string& path, Handler handler) {
-    add_route("PUT", path, std::move(handler));
+void Router::put(std::string path, Handler handler) {
+    add_route("PUT", std::move(path), std::move(handler));
 }
 
-void Router::post(const std::string& path, Handler handler) {
-    add_route("POST", path, std::move(handler));
+void Router::post(std::string path, Handler handler) {
+    add_route("POST", std::move(path), std::move(handler));
 }
 
-void Router::del(const std::string& path, Handler handler) {
-    add_route("DELETE", path, std::move(handler));
+void Router::del(std::string path, Handler handler) {
+    add_route("DELETE", std::move(path), std::move(handler));
 }
 
 bool Router::match(const Route& route, const std::string& path, std::unordered_map<std::string, std::string>& out_params) {
-    auto pattern_seg = split_path(route.pattern);
-    auto path_seg = split_path(path);
+    auto pattern_seg = split_str(route.pattern, '/');
+    auto path_seg = split_str(path, '/');
 
     if (pattern_seg.size() != path_seg.size()) return false;
 

@@ -1,5 +1,6 @@
 #include <thread_pool.hpp>
 
+#include <mutex>
 #include <stdexcept>
 
 ThreadPool::ThreadPool(size_t num_threads) : stop_(false) {

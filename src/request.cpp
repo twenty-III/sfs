@@ -1,10 +1,12 @@
 #include <request.hpp>
 #include <string_utils.hpp>
 
+#include <string>
 #include <cctype>
 #include <sstream>
 #include <stdexcept>
 #include <algorithm>
+#include <unordered_map>
 #include <sys/socket.h>
 
 void RequestParser::parse_query_string(const std::string& query, std::unordered_map<std::string, std::string>& out) {

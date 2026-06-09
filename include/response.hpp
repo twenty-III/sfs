@@ -16,15 +16,14 @@ public:
     const std::string& body() const { return body_; }
 
     void set_status(int code) { status_code_ = code; }
-    void set_header(const std::string& key, const std::string& value);
+    void set_header(const std::string& key, std::string value);
     void set_body(std::string body);
 
     std::string serialize() const;
 
-    static Response ok(const std::string& body, const std::string& content_type = "text/plain");
-    static Response json(const std::string& body);
-    static Response html(const std::string& body);
-    
+    static Response ok(std::string body, std::string content_type = "text/plain");
+    static Response json(std::string body);
+    static Response html(std::string body);
     static Response not_found(std::string msg = "404 Not Found");
     static Response bad_request(std::string msg = "400 Bad Request");
     static Response server_error(std::string msg = "500 Internal Server Error");

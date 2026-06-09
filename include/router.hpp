@@ -10,26 +10,26 @@
 
 using Handler = std::function<Response(const Request&)>;
 
-struct Route {
-    std::string method;
-    std::string pattern;
-    std::vector<std::string> params;
-    Handler handler;
-};
-
 class Router {
 public:
-    void get(const std::string& path, Handler handler);
-    void put(const std::string& path, Handler handler);
-    void post(const std::string& path, Handler handler);
-    void del(const std::string& path, Handler handler);
+    void get(std::string path, Handler handler);
+    void put(std::string path, Handler handler);
+    void post(std::string path, Handler handler);
+    void del(std::string path, Handler handler);
 
     Response dispatch(Request& req) const;
 
 private:
+    struct Route {
+        std::string method;
+        std::string pattern;
+        std::vector<std::string> params;
+        Handler handler;
+    };
+
     std::vector<Route> routes_;
     
-    void add_route(const std::string& method, const std::string& path, Handler handler);
+    void add_route(std::string method, std::string path, Handler handler);
 
     static bool match(const Route& route, const std::string& path, std::unordered_map<std::string, std::string>& out_params);
 };
