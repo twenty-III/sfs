@@ -3,20 +3,22 @@
 #include <string>
 #include <unordered_map>
 
-class Response {
+class Response
+{
 public:
-    Response() {
+    Response()
+    {
         headers_["connection"] = "Close";
         headers_["content-length"] = "0";
     }
 
     int status_code() const { return status_code_; }
     std::string status_text() const { return status_text_for(status_code_); }
-    const std::unordered_map<std::string, std::string>& headers() const { return headers_; }
-    const std::string& body() const { return body_; }
+    const std::unordered_map<std::string, std::string> &headers() const { return headers_; }
+    const std::string &body() const { return body_; }
 
     void set_status(int code) { status_code_ = code; }
-    void set_header(const std::string& key, std::string value);
+    void set_header(std::string key, std::string value);
     void set_body(std::string body);
 
     std::string serialize() const;
