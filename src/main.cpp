@@ -1,17 +1,14 @@
 #include <server.hpp>
-#include <logger.hpp>
+#include <file_server.hpp>
 
 #include <thread>
+#include <iostream>
 
 int main()
 {
-    auto num_threads = std::thread::hardware_concurrency();
+    Server server(8080, std::thread::hardware_concurrency());
 
-    Server server(8080, num_threads);
-
-    server.get("/", [](const Request&) {
-        return Response::ok("Hello, Im mohit dubey");
-    });
+    server.set_static_dir("../public");
 
     server.listen();
 

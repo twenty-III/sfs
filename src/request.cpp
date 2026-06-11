@@ -1,5 +1,6 @@
 #include <request.hpp>
 #include <string_utils.hpp>
+#include <logger.hpp>
 
 #include <string>
 #include <cctype>
@@ -64,14 +65,23 @@ bool RequestParser::parse(int client_fd, Request &req)
         ssize_t n = recv(client_fd, buf, sizeof(buf), 0);
 
         if (n <= 0)
+        {
+            LOG_ERROR("unable to receive content for request from socket: ", req.method(), ' ', req.path());
             return false;
+        }
 
         raw.append(buf, n);
 
         if (raw.find("\r\n\r\n") != std::string::npos)
+        {
             break;
+        }
+
         if (raw.size() > MAX_HEADER_SIZE)
+        {
+            LOG_ERROR("header length is very large for request: ", req.method(), ' ', req.path());
             return false;
+        }
     }
 
     auto header_end = raw.find("\r\n\r\n");
@@ -131,11 +141,15 @@ bool RequestParser::parse(int client_fd, Request &req)
         }
         catch (...)
         {
+            LOG_ERROR("invalid content length for request: ", req.method(), ' ', req.path());
             return false;
         }
 
         if (content_len > MAX_BODY_SIZE)
+        {
+            LOG_ERROR("content length is very large for request: ", req.method(), ' ', req.path());
             return false;
+        }
 
         req.body_ = leftover_body;
 
@@ -146,6 +160,7 @@ bool RequestParser::parse(int client_fd, Request &req)
 
             if (n <= 0)
             {
+                LOG_ERROR("unable to receive content for request from socket: ", req.method(), ' ', req.path());
                 return false;
             }
 
@@ -154,4 +169,14 @@ bool RequestParser::parse(int client_fd, Request &req)
     }
 
     return true;
+}
+
+Request Request::fake_request(std::string method, std::string path, std::string body)
+{
+    Request req;
+    req.method_ = std::move(method);
+    req.path_ = std::move(path);
+    req.headers_["content-length"] = std::to_string(body.size());
+    req.body_ = body;
+    return req;
 }

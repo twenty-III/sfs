@@ -22,6 +22,8 @@ public:
     std::string get_path(const std::string &key) const;
     std::string get_query(const std::string &key) const;
 
+    static Request fake_request(std::string method, std::string path, std::string body = "");
+
 private:
     std::string method_;
     std::string path_;

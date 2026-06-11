@@ -24,7 +24,9 @@ inline std::vector<std::string> split_str(const std::string &str, char delimiter
     while (std::getline(ss, tmp, delimiter))
     {
         if (!tmp.empty())
+        {
             res.push_back(tmp);
+        }
     }
 
     return res;

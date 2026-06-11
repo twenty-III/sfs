@@ -56,7 +56,7 @@ void Server::setup_socket()
 
 void Server::listen()
 {
-    LOG_INFO("server accepting connections at http://localhost: ", port_);
+    LOG_INFO("server accepting connections at http://localhost:", port_);
 
     while (true)
     {

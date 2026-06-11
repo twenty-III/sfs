@@ -1,6 +1,7 @@
 #include <router.hpp>
 #include <string_utils.hpp>
 #include <logger.hpp>
+#include <file_server.hpp>
 
 #include <string>
 #include <vector>
@@ -25,26 +26,6 @@ void Router::add_route(std::string method, std::string path, Handler handler)
     }
 
     routes_.push_back(new_route);
-}
-
-void Router::get(std::string path, Handler handler)
-{
-    add_route("GET", std::move(path), std::move(handler));
-}
-
-void Router::put(std::string path, Handler handler)
-{
-    add_route("PUT", std::move(path), std::move(handler));
-}
-
-void Router::post(std::string path, Handler handler)
-{
-    add_route("POST", std::move(path), std::move(handler));
-}
-
-void Router::del(std::string path, Handler handler)
-{
-    add_route("DELETE", std::move(path), std::move(handler));
 }
 
 bool Router::match(const Route &route, const std::string &path, std::unordered_map<std::string, std::string> &out_params)
@@ -76,6 +57,7 @@ bool Router::match(const Route &route, const std::string &path, std::unordered_m
 
 Response Router::dispatch(Request &req) const
 {
+
     for (const auto &route : routes_)
     {
         if (route.method != req.method())
@@ -112,6 +94,13 @@ Response Router::dispatch(Request &req) const
             res.set_header("Content-Type", "text/plain");
             return res;
         }
+    }
+
+    if (!static_dir_.empty())
+    {
+        FileServer file_server(static_dir_);
+
+        return file_server.serve(req);
     }
 
     return Response::not_found("Not found " + req.method() + ' ' + req.path());

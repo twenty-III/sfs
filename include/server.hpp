@@ -13,6 +13,11 @@ public:
     Server(const Server &) = delete;
     Server &operator=(const Server &) = delete;
 
+    void set_static_dir(std::string path)
+    {
+        router_.set_static_dir(std::move(path));
+    }
+
     void get(std::string path, Handler handler)
     {
         router_.get(std::move(path), std::move(handler));

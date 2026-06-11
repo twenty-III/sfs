@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C++17 HTTP Server</title>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="grid-background"></div>
+    
+    <nav class="navbar">
+        <div class="nav-content">
+            <div class="logo">
+                <span class="bracket">{</span> C++ Server <span class="bracket">}</span>
+            </div>
+            <div class="status-badge">
+                <span class="pulse"></span> System Online
+            </div>
+        </div>
+    </nav>
+
+    <main class="container">
+        <header class="hero">
+            <h1 class="glitch-text">High-Performance <br><span class="highlight">Web Engineering.</span></h1>
+            <p class="subtitle">You are viewing a static HTML file served natively by a custom-built, multi-threaded C++17 HTTP backend.</p>
+        </header>
+
+        <section class="terminal-window">
+            <div class="terminal-header">
+                <div class="terminal-buttons">
+                    <span class="btn close-btn"></span>
+                    <span class="btn minimize-btn"></span>
+                    <span class="btn maximize-btn"></span>
+                </div>
+                <div class="terminal-title">server.log</div>
+            </div>
+            <div class="terminal-body">
+                <div class="log-line"><span class="time">[10:45:01]</span> <span class="info">[INFO]</span> [Server] started at port 8080 with 4 worker threads</div>
+                <div class="log-line"><span class="time">[10:45:01]</span> <span class="info">[INFO]</span> Static directory 'public' mounted successfully.</div>
+                <div class="log-line"><span class="time">[10:45:12]</span> <span class="success">[CONN]</span> 127.0.0.1:54321</div>
+                <div class="log-line"><span class="time">[10:45:12]</span> <span class="info">[INFO]</span> [Request] GET /</div>
+                <div class="log-line"><span class="time">[10:45:12]</span> <span class="success">[200 OK]</span> Served public/index.html (2.4ms)</div>
+                <div class="log-line typing-effect"><span class="cursor"></span></div>
+            </div>
+        </section>
+
+        <section class="features-grid">
+            <div class="feature-card">
+                <div class="icon">⚡</div>
+                <h3>Multi-Threaded</h3>
+                <p>Powered by a custom thread pool. Worker threads pull incoming connections from a mutex-locked queue, ensuring no connection blocks the main loop.</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon">🛡️</div>
+                <h3>Secure by Design</h3>
+                <p>Strict path normalization utilizing std::filesystem iterators entirely eliminates directory traversal (../) vulnerabilities.</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon">🧠</div>
+                <h3>Zero-Copy Architecture</h3>
+                <p>Advanced C++ memory management. Files are read directly into pre-allocated memory strings, and logs utilize perfect forwarding.</p>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>Built from scratch using POSIX Sockets & Modern C++.</p>
+    </footer>
+</body>
+</html>
