@@ -98,9 +98,7 @@ Response Router::dispatch(Request &req) const
 
     if (!static_dir_.empty())
     {
-        FileServer file_server(static_dir_);
-
-        return file_server.serve(req);
+        return FileServer::serve(req, static_dir_);
     }
 
     return Response::not_found("Not found " + req.method() + ' ' + req.path());

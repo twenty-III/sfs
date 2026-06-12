@@ -27,8 +27,10 @@ std::string FileServer::mime_type(const std::string &ext)
     return (it == mime_types.end()) ? "application/octet-stream" : it->second;
 }
 
-Response FileServer::serve(const Request &req)
+Response FileServer::serve(const Request &req, const std::string &static_dir)
 {
+    auto base_dir = fs::weakly_canonical(static_dir);
+
     std::string req_path = req.path();
 
     if (!req_path.empty() && req_path[0] == '/')
@@ -36,11 +38,11 @@ Response FileServer::serve(const Request &req)
         req_path = req_path.substr(1);
     }
 
-    fs::path tgt_path = base_dir_ / req_path;
+    fs::path tgt_path = base_dir / req_path;
 
     tgt_path = fs::weakly_canonical(tgt_path);
 
-    if (tgt_path.string().find(base_dir_.string()) != 0)
+    if (tgt_path.string().find(base_dir.string()) != 0)
     {
         LOG_WARN("blocked directory traversal attack: ", req_path);
 
@@ -67,12 +69,11 @@ Response FileServer::serve(const Request &req)
         LOG_ERROR("failed to read requested file: ", req_path);
     }
 
-    std::ostringstream oss;
-    oss << file.rdbuf();
+    std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
 
     std::string ext = tgt_path.extension().string();
 
     LOG_INFO("served file: ", req_path);
 
-    return Response::ok(oss.str(), mime_type(ext));
+    return Response::ok(std::move(content), std::move(mime_type(ext)));
 }

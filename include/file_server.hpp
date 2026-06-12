@@ -11,12 +11,8 @@ namespace fs = std::filesystem;
 class FileServer
 {
 public:
-    FileServer(const std::string &base_dir) : base_dir_(fs::weakly_canonical(base_dir)) {}
-
-    Response serve(const Request &req);
+    static Response serve(const Request &req, const std::string &static_dir);
 
 private:
-    fs::path base_dir_;
-
     static std::string mime_type(const std::string &ext);
 };
