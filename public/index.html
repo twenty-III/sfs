@@ -1,72 +1,278 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Server From Scratch</title>
-    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MyCppServer — HTTP server in C++17</title>
+  <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-    <div class="grid-background"></div>
-    
-    <nav class="navbar">
-        <div class="nav-content">
-            <div class="logo">
-                <span class="bracket">{</span> SFS <span class="bracket">}</span>
-            </div>
-            <div class="status-badge">
-                <span class="pulse"></span> System Online
-            </div>
+
+  <header class="hero">
+    <div class="container">
+      <div class="badge">C++17 &nbsp;·&nbsp; POSIX sockets &nbsp;·&nbsp; zero dependencies</div>
+      <h1>MyCppServer</h1>
+      <p class="hero-sub">
+        A multithreaded HTTP/1.1 server written from scratch in C++.<br>
+        Raw TCP sockets, a thread pool, request parsing, and a router — no libraries.
+      </p>
+      <div class="hero-stats">
+        <div class="stat"><span class="stat-n" id="stat-threads">—</span><span class="stat-l">worker threads</span></div>
+        <div class="stat-sep"></div>
+        <div class="stat"><span class="stat-n">~600</span><span class="stat-l">lines of code</span></div>
+        <div class="stat-sep"></div>
+        <div class="stat"><span class="stat-n">0</span><span class="stat-l">dependencies</span></div>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <section class="section">
+      <h2 class="section-title">How a request flows through the server</h2>
+      <div class="pipeline">
+        <div class="pipe-step">
+          <div class="pipe-icon">🔌</div>
+          <div class="pipe-label">TCP Socket</div>
+          <div class="pipe-desc"><code>accept()</code> on port 8080</div>
         </div>
-    </nav>
+        <div class="pipe-arrow">→</div>
+        <div class="pipe-step">
+          <div class="pipe-icon">⚙️</div>
+          <div class="pipe-label">Thread Pool</div>
+          <div class="pipe-desc">handed to an idle worker</div>
+        </div>
+        <div class="pipe-arrow">→</div>
+        <div class="pipe-step">
+          <div class="pipe-icon">📖</div>
+          <div class="pipe-label">Parser</div>
+          <div class="pipe-desc">method, path, headers, body</div>
+        </div>
+        <div class="pipe-arrow">→</div>
+        <div class="pipe-step">
+          <div class="pipe-icon">🗺️</div>
+          <div class="pipe-label">Router</div>
+          <div class="pipe-desc">pattern match → handler</div>
+        </div>
+        <div class="pipe-arrow">→</div>
+        <div class="pipe-step">
+          <div class="pipe-icon">📤</div>
+          <div class="pipe-label">Response</div>
+          <div class="pipe-desc">serialised via <code>send()</code></div>
+        </div>
+      </div>
+    </section>
 
-    <main class="container">
-        <header class="hero">
-            <h1 class="glitch-text">High-Performance <br><span class="highlight">Web Engineering.</span></h1>
-            <p class="subtitle">You are viewing a static HTML file served natively by a custom-built, multi-threaded C++17 HTTP backend.</p>
-        </header>
+    <section class="section">
+      <h2 class="section-title">Live endpoints — click to try</h2>
+      <p class="section-sub">Each button fires a real request to this server and shows the raw response.</p>
 
-        <section class="terminal-window">
-            <div class="terminal-header">
-                <div class="terminal-buttons">
-                    <span class="btn close-btn"></span>
-                    <span class="btn minimize-btn"></span>
-                    <span class="btn maximize-btn"></span>
-                </div>
-                <div class="terminal-title">server.log</div>
-            </div>
-            <div class="terminal-body">
-                <div class="log-line"><span class="time">[10:45:01]</span> <span class="info">[INFO]</span> [Server] started at port 8080 with 4 worker threads</div>
-                <div class="log-line"><span class="time">[10:45:01]</span> <span class="info">[INFO]</span> Static directory 'public' mounted successfully.</div>
-                <div class="log-line"><span class="time">[10:45:12]</span> <span class="success">[CONN]</span> 127.0.0.1:54321</div>
-                <div class="log-line"><span class="time">[10:45:12]</span> <span class="info">[INFO]</span> [Request] GET /</div>
-                <div class="log-line"><span class="time">[10:45:12]</span> <span class="success">[200 OK]</span> Served public/index.html (2.4ms)</div>
-                <div class="log-line typing-effect"><span class="cursor"></span></div>
-            </div>
-        </section>
+      <div class="endpoints">
 
-        <section class="features-grid">
-            <div class="feature-card">
-                <div class="icon">⚡</div>
-                <h3>Multi-Threaded</h3>
-                <p>Powered by a custom thread pool. Worker threads pull incoming connections from a mutex-locked queue, ensuring no connection blocks the main loop.</p>
-            </div>
-            <div class="feature-card">
-                <div class="icon">🛡️</div>
-                <h3>Secure by Design</h3>
-                <p>Strict path normalization utilizing std::filesystem iterators entirely eliminates directory traversal (../) vulnerabilities.</p>
-            </div>
-            <div class="feature-card">
-                <div class="icon">🧠</div>
-                <h3>Zero-Copy Architecture</h3>
-                <p>Advanced C++ memory management. Files are read directly into pre-allocated memory strings, and logs utilize perfect forwarding.</p>
-            </div>
-        </section>
-    </main>
+        <div class="endpoint-card">
+          <div class="ep-header">
+            <span class="method get">GET</span>
+            <span class="ep-path">/ping</span>
+            <span class="ep-desc">Health check</span>
+          </div>
+          <p>Returns <code>pong</code>. Used by load balancers to verify the server is alive.</p>
+          <button class="try-btn" onclick="tryEndpoint('GET','/ping',null,'r-ping')">Try it</button>
+          <div id="r-ping" class="response hidden"></div>
+        </div>
 
-    <footer>
-        <p>Built from scratch using POSIX Sockets & Modern C++.</p>
-    </footer>
+        <div class="endpoint-card">
+          <div class="ep-header">
+            <span class="method get">GET</span>
+            <span class="ep-path">/info</span>
+            <span class="ep-desc">Server metadata</span>
+          </div>
+          <p>Returns live JSON with server name and the number of active worker threads.</p>
+          <button class="try-btn" onclick="tryEndpoint('GET','/info',null,'r-info')">Try it</button>
+          <div id="r-info" class="response hidden"></div>
+        </div>
+
+        <div class="endpoint-card">
+          <div class="ep-header">
+            <span class="method get">GET</span>
+            <span class="ep-path">/echo?msg=…</span>
+            <span class="ep-desc">Query parameters</span>
+          </div>
+          <p>Demonstrates query string parsing. The server reads <code>req.query_params()</code> and echoes <code>msg</code> back.</p>
+          <div class="input-row">
+            <input id="echo-val" type="text" value="hello from browser" placeholder="Type a message">
+            <button class="try-btn" onclick="tryEcho()">Try it</button>
+          </div>
+          <div id="r-echo" class="response hidden"></div>
+        </div>
+
+        <div class="endpoint-card">
+          <div class="ep-header">
+            <span class="method get">GET</span>
+            <span class="ep-path">/users/:id</span>
+            <span class="ep-desc">Path parameters</span>
+          </div>
+          <p>The <code>:id</code> segment is captured at route-match time and placed in <code>req.path_params()</code>.</p>
+          <div class="input-row">
+            <input id="uid-val" type="text" value="42" placeholder="User ID">
+            <button class="try-btn" onclick="tryUser()">Try it</button>
+          </div>
+          <div id="r-user" class="response hidden"></div>
+        </div>
+
+        <div class="endpoint-card">
+          <div class="ep-header">
+            <span class="method post">POST</span>
+            <span class="ep-path">/users</span>
+            <span class="ep-desc">Request body</span>
+          </div>
+          <p>Demonstrates body reading. The parser uses <code>Content-Length</code> to know how many bytes to read from the socket.</p>
+          <div class="input-row">
+            <input id="post-val" type="text" value='{"name":"Alice"}' placeholder="JSON body">
+            <button class="try-btn" onclick="tryPost()">Try it</button>
+          </div>
+          <div id="r-post" class="response hidden"></div>
+        </div>
+
+        <div class="endpoint-card">
+          <div class="ep-header">
+            <span class="method del">DELETE</span>
+            <span class="ep-path">/users/:id</span>
+            <span class="ep-desc">204 No Content</span>
+          </div>
+          <p>Returns 204 — success with no response body. The correct HTTP status for a successful delete.</p>
+          <button class="try-btn" onclick="tryEndpoint('DELETE','/users/42',null,'r-del')">Try it</button>
+          <div id="r-del" class="response hidden"></div>
+        </div>
+
+      </div>
+    </section>
+
+    <section class="section">
+      <h2 class="section-title">What's inside</h2>
+      <div class="components">
+
+        <div class="comp-card">
+          <h3>Thread Pool</h3>
+          <p>Fixed <code>std::thread</code> workers share a queue protected by <code>std::mutex</code> and <code>std::condition_variable</code>. Workers sleep for free when idle. Spawning a thread per request costs ~10–50µs; pool workers pick up tasks in microseconds.</p>
+          <div class="comp-file">thread_pool.hpp / .cpp</div>
+        </div>
+
+        <div class="comp-card">
+          <h3>Request Parser</h3>
+          <p>Reads raw bytes from the socket in a loop — TCP delivers data in chunks, not messages. Parses the request line, headers, query string, and body. Rejects oversized headers and truncated bodies.</p>
+          <div class="comp-file">request.hpp / .cpp</div>
+        </div>
+
+        <div class="comp-card">
+          <h3>Router</h3>
+          <p>Stores <code>(method, pattern, handler)</code> triples. Matches paths segment-by-segment, capturing <code>:param</code> wildcards. Returns 405 when the path exists but the method doesn't — correct HTTP semantics.</p>
+          <div class="comp-file">router.hpp / .cpp</div>
+        </div>
+
+        <div class="comp-card">
+          <h3>Response Builder</h3>
+          <p><code>Content-Length</code> and <code>Connection</code> are auto-managed — <code>set_header()</code> rejects them to prevent duplicate headers. <code>status_text_for()</code> returns <code>std::string_view</code> into literals: zero allocation per call.</p>
+          <div class="comp-file">response.hpp / .cpp</div>
+        </div>
+
+        <div class="comp-card">
+          <h3>File Server</h3>
+          <p>Serves HTML, CSS, JS, images from disk. Falls back from the router on 404. Blocks path traversal (<code>../</code> attacks) by scanning segments. MIME type from extension so the browser renders, not downloads.</p>
+          <div class="comp-file">file_server.hpp / .cpp</div>
+        </div>
+
+        <div class="comp-card">
+          <h3>Logger</h3>
+          <p>Meyers singleton, thread-safe via <code>std::mutex</code>. Variadic template with a C++17 fold expression lets you pass any number of typed values. <code>__FILE__</code> and <code>__LINE__</code> captured at call site via macros.</p>
+          <div class="comp-file">logger.hpp / .cpp</div>
+        </div>
+
+      </div>
+    </section>
+
+    <section class="section">
+      <h2 class="section-title">curl cheat sheet</h2>
+      <pre class="code-block"><code><span class="cm"># Health check</span>
+curl http://localhost:8080/ping
+
+<span class="cm"># JSON metadata</span>
+curl http://localhost:8080/info
+
+<span class="cm"># Query parameters</span>
+curl "http://localhost:8080/echo?msg=hello"
+
+<span class="cm"># Path parameters</span>
+curl http://localhost:8080/users/42
+
+<span class="cm"># POST with a JSON body</span>
+curl -X POST http://localhost:8080/users \
+     -H "Content-Type: application/json" \
+     -d '{"name": "Alice"}'
+
+<span class="cm"># DELETE — expect 204 No Content</span>
+curl -s -o /dev/null -w "%{http_code}" \
+     -X DELETE http://localhost:8080/users/42
+
+<span class="cm"># See full response headers</span>
+curl -i http://localhost:8080/ping</code></pre>
+    </section>
+
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      Built with C++17 &nbsp;·&nbsp; POSIX sockets &nbsp;·&nbsp;
+      <code>std::thread</code> pool &nbsp;·&nbsp; no frameworks &nbsp;·&nbsp; no dependencies
+    </div>
+  </footer>
+
+  <script>
+    fetch('/info')
+      .then(r => r.json())
+      .then(d => { document.getElementById('stat-threads').textContent = d.worker_threads; })
+      .catch(() => {});
+
+    async function tryEndpoint(method, path, body, id) {
+      const el = document.getElementById(id);
+      el.className = 'response loading';
+      el.textContent = 'waiting…';
+
+      try {
+        const opts = { method };
+        if (body) {
+          opts.body = body;
+          opts.headers = { 'Content-Type': 'application/json' };
+        }
+        const res  = await fetch(path, opts);
+        const text = await res.text();
+
+        el.className = 'response ' + (res.status < 400 ? 'ok' : 'err');
+        el.textContent =
+          `HTTP ${res.status} ${res.statusText}\n` +
+          `Content-Type: ${res.headers.get('content-type') ?? '—'}\n\n` +
+          (text.trim() || '(empty body)');
+      } catch {
+        el.className = 'response err';
+        el.textContent = 'Could not reach the server.';
+      }
+    }
+
+    const tryEcho = () => {
+      const v = document.getElementById('echo-val').value || 'hello';
+      tryEndpoint('GET', `/echo?msg=${encodeURIComponent(v)}`, null, 'r-echo');
+    };
+    const tryUser = () => {
+      const v = document.getElementById('uid-val').value || '42';
+      tryEndpoint('GET', `/users/${encodeURIComponent(v)}`, null, 'r-user');
+    };
+    const tryPost = () => {
+      tryEndpoint('POST', '/users', document.getElementById('post-val').value, 'r-post');
+    };
+
+    document.querySelectorAll('.input-row input').forEach(inp =>
+      inp.addEventListener('keydown', e => { if (e.key === 'Enter') inp.nextElementSibling.click(); })
+    );
+  </script>
+
 </body>
 </html>

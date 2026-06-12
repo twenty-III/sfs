@@ -75,5 +75,5 @@ Response FileServer::serve(const Request &req, const std::string &static_dir)
 
     LOG_INFO("served file: ", req_path);
 
-    return Response::ok(std::move(content), std::move(mime_type(ext)));
+    return Response::ok(std::move(content), mime_type(ext));
 }

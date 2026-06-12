@@ -76,7 +76,7 @@ Response Router::dispatch(Request &req) const
             }
             catch (const std::exception &e)
             {
-                LOG_ERROR("[Router] handler throw: " + std::string(e.what()) + '\n');
+                LOG_ERROR("handler throw: ", std::string(e.what()));
                 return Response::server_error(e.what());
             }
         }
