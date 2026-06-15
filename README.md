@@ -1,4 +1,4 @@
-# MyCppServer
+# Server from Scratch
 
 A multithreaded HTTP/1.1 server written from scratch in C++17. No external libraries — just POSIX sockets, the standard library, and about 600 lines of code.
 
