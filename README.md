@@ -1,210 +1,219 @@
-# Server from Scratch
+# SFS — Server From Scratch
 
-A multithreaded HTTP/1.1 server written from scratch in C++17. No external libraries — just POSIX sockets, the standard library, and about 600 lines of code.
+A multithreaded HTTP/1.1 server written in C++17, built directly on POSIX sockets.
+No Boost.Asio, no libuv, no third-party HTTP library — the socket setup, request
+parser, router, and response serializer are all hand-written.
 
-Built to understand what actually happens between a browser sending a request and your handler function running. Every layer — TCP socket, byte parsing, routing, thread scheduling — is written by hand and explained in comments.
-
----
-
-## How it works
-
-```
-Client                        Server (one per request, on a worker thread)
-  │                                │
-  │──── TCP connect ───────────────▶│  accept() returns a new file descriptor
-  │                                │
-  │──── raw bytes ─────────────────▶│  recv() in a loop until \r\n\r\n
-  │  "GET /users/42 HTTP/1.1\r\n   │
-  │   Host: localhost\r\n\r\n"     │  RequestParser splits method / path /
-  │                                │  headers / body into a Request object
-  │                                │
-  │                                │  Router walks its route list,
-  │                                │  matches "/users/:id", extracts id="42",
-  │                                │  calls the registered handler lambda
-  │                                │
-  │◀─── raw bytes ─────────────────│  Response::serialize() builds the
-  │  "HTTP/1.1 200 OK\r\n          │  wire format; send() loops until
-  │   Content-Length: 37\r\n\r\n…" │  all bytes are written
-  │                                │
-  │──── TCP close ─────────────────▶│  close(client_fd)
-```
+![C++](https://img.shields.io/badge/C%2B%2B-17-blue)
+![Build](https://img.shields.io/badge/build-CMake-informational)
+![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS-lightgrey)
+![License](https://img.shields.io/badge/license-MIT-green)
 
 ---
 
-## Quick start
+## Overview
 
-**Requirements:** Linux, GCC ≥ 9, CMake ≥ 3.16
+SFS implements the HTTP request/response lifecycle from the raw `socket()` call
+upward: accepting TCP connections, parsing request bytes off the wire, matching
+them against a route table, and writing a correctly-framed HTTP response back —
+all without relying on an existing HTTP stack.
 
-```bash
-git clone https://github.com/yourname/cpp-projects
-cd cpp-projects
+It supports JSON/plain-text/HTML responses, path parameters (`/users/:id`), static
+file serving with MIME-type detection, and concurrent request handling via a fixed
+worker thread pool.
 
-cmake -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build --target http_server_demo -j$(nproc)
+```
+$ curl http://localhost:8080/ping
+pong
 
-# Run from the project root so ./public resolves correctly
-cd build/http_server && ./http_server_demo
+$ curl http://localhost:8080/info
+{
+  "server": "Server From Scratch",
+  "language": "C++17",
+  "worker_threads": 8
+}
 ```
 
-Open [http://localhost:8080](http://localhost:8080) — the demo page lets you test every endpoint live from the browser.
+## Features
 
----
+- **Hand-rolled HTTP/1.1 parser** — reads the request line, headers, and body
+  directly off the socket, with bounded buffering (8 KB header cap, 1 MB body
+  cap) so a malicious or broken client can't exhaust server memory.
+- **Thread pool concurrency** — a single acceptor thread hands each connection
+  off to a fixed-size pool of worker threads via a mutex + condition-variable
+  task queue, rather than spawning a thread per connection.
+- **Method-aware router with path parameters** — routes like `/users/:id` are
+  matched segment-by-segment and the extracted values are exposed through
+  `Request::get_path()`. Unmatched paths fall through to a static file server;
+  a matched path with the wrong method returns `405`, not a generic `404`.
+- **Static file server with directory-traversal protection** — resolves the
+  requested path against the static root using `weakly_canonical()` and
+  rejects any path that escapes the root (`403 Forbidden`), with MIME types
+  resolved from a small extension table.
+- **Header-safe response builder** — `Content-Length` is computed automatically
+  from the body and direct attempts to override `Content-Length` or
+  `Connection` are blocked, preventing response-smuggling-style bugs.
+- **Exception-safe dispatch** — if a route handler throws, the router catches
+  it and returns `500` instead of taking the connection down.
+- **Per-connection receive timeout** — a 5-second `SO_RCVTIMEO` on each client
+  socket so a slow or stalled client can't tie up a worker thread forever.
+- **Structured logging** — lightweight `LOG_INFO` / `LOG_WARN` / `LOG_ERROR`
+  macros used throughout for connection and request lifecycle visibility.
+
+## Architecture
+
+```
+ Client                Server                  ThreadPool              Router
+   │      TCP connect     │                         │                     │
+   ├──────────────────────▶  accept()                │                     │
+   │                       ├────────enqueue()────────▶                     │
+   │                       │                         │  worker picks up    │
+   │                       │                         ├──handle_client()────▶
+   │                       │                         │                     │  dispatch()
+   │                       │                         │                     ├──────▶ Handler
+   │                       │                         │                     ◀──────┤
+   │   HTTP response       │                         │                     │
+   ◀───────────────────────┴─────────────────────────┴─────────────────────┘
+```
+
+| Component    | Responsibility                                                            |
+|--------------|----------------------------------------------------------------------------|
+| `Server`     | Socket setup (`bind`/`listen`), accept loop, dispatches to the pool        |
+| `ThreadPool` | Fixed worker pool draining a thread-safe task queue                        |
+| `Request`    | Parses the raw socket stream into method, path, headers, query, body      |
+| `Router`     | Matches method + path (incl. `:param` segments), 404/405 handling         |
+| `Response`   | Builds and serializes a well-formed HTTP/1.1 response                     |
+| `FileServer` | Serves static assets with MIME detection and traversal protection         |
+| `Logger`     | Macro-based structured logging (`LOG_INFO`, `LOG_WARN`, `LOG_ERROR`)       |
+
+**Concurrency model:** one acceptor thread, N worker threads (`N = max(4, hardware_concurrency())`
+by default). The acceptor only calls `accept()` and `enqueue()` — all parsing,
+routing, and I/O for a connection happens on a worker thread, so a slow client
+never blocks new connections from being accepted.
 
 ## Project structure
 
 ```
-http_server/
+SFS/
 ├── include/
-│   ├── server.hpp        # Server class — socket, thread pool, file mounts
-│   ├── request.hpp       # Request (immutable value object) + RequestParser
-│   ├── response.hpp      # Response builder + factory methods
-│   ├── router.hpp        # Route registration and dispatch
-│   ├── thread_pool.hpp   # Fixed worker threads + condition_variable queue
-│   ├── file_server.hpp   # Static file serving from disk
-│   └── logger.hpp        # Thread-safe logger (Meyers singleton)
+│   ├── file_server.hpp
+│   ├── logger.hpp
+│   ├── request.hpp
+│   ├── response.hpp
+│   ├── router.hpp
+│   ├── server.hpp
+│   └── thread_pool.hpp
+├── public/
+│   ├── index.html
+│   └── style.css
 ├── src/
-│   ├── server.cpp
+│   ├── file_server.cpp
+│   ├── main.cpp
 │   ├── request.cpp
 │   ├── response.cpp
 │   ├── router.cpp
-│   ├── thread_pool.cpp
-│   ├── file_server.cpp
-│   ├── logger.cpp
-│   └── main.cpp          # Demo routes
-└── public/               # Served as static files
-    ├── index.html
-    └── style.css
+│   ├── server.cpp
+│   └── thread_pool.cpp
+├── utils/
+├── build/
+├── CMakeLists.txt
+└── README.md
 ```
 
----
+## Getting started
 
-## API — demo endpoints
+### Prerequisites
 
-| Method | Path | What it demonstrates |
-|--------|------|----------------------|
-| GET | `/ping` | Health check — returns `pong` |
-| GET | `/info` | Live JSON with server version and thread count |
-| GET | `/echo?msg=…` | Query parameter parsing |
-| GET | `/users/:id` | Path parameter extraction |
-| POST | `/users` | Reading the request body |
-| DELETE | `/users/:id` | 204 No Content response |
+- A C++17 compiler (GCC ≥ 9 or Clang ≥ 10)
+- CMake ≥ 3.15
+- A POSIX environment (Linux or macOS — uses `sys/socket.h`, `unistd.h`, etc.)
+
+### Build
 
 ```bash
-curl http://localhost:8080/ping
-
-curl http://localhost:8080/info
-
-curl "http://localhost:8080/echo?msg=hello"
-
-curl http://localhost:8080/users/42
-
-curl -X POST http://localhost:8080/users \
-     -H "Content-Type: application/json" \
-     -d '{"name": "Alice"}'
-
-curl -s -o /dev/null -w "%{http_code}" \
-     -X DELETE http://localhost:8080/users/42
+git clone <your-repo-url> sfs
+cd sfs
+mkdir build && cd build
+cmake ..
+make -j$(nproc)
 ```
 
----
+> Adjust the binary name below to whatever target your `CMakeLists.txt` defines.
 
-## Adding a route
+### Run
 
-Register handlers before calling `server.listen()`. Handlers are lambdas that take a `const Request&` and return a `Response`:
+```bash
+./sfs
+```
+
+```
+[INFO] server started at port 8080 with 8 worker threads
+[INFO] server accepting connections at http://localhost:8080
+```
+
+Then open **http://localhost:8080** — that's `public/index.html`, served by SFS itself.
+
+## API reference
+
+### Built-in demo routes (`main.cpp`)
+
+| Method | Path     | Description                                              |
+|--------|----------|-----------------------------------------------------------|
+| GET    | `/ping`  | Liveness check — returns `pong`                            |
+| GET    | `/info`  | Returns server metadata as JSON (language, thread count)   |
+| GET    | `/echo`  | Echoes back the `msg` query parameter                      |
+| GET    | `/*`     | Falls through to the static file server (`public/`)        |
+
+### Defining your own routes
 
 ```cpp
-// Path parameter
-server.get("/items/:id", [](const Request& req) {
-    std::string id = req.path_params().at("id");
+server.get("/users/:id", [](const Request &req) {
+    std::string id = req.get_path("id");
     return Response::json("{\"id\": \"" + id + "\"}");
 });
-
-// Query parameter
-server.get("/search", [](const Request& req) {
-    auto& p = req.query_params();
-    std::string q = p.count("q") ? p.at("q") : "";
-    return Response::ok("Searching for: " + q);
-});
-
-// Request body
-server.post("/data", [](const Request& req) {
-    Response res = Response::json("{\"got\": " + std::to_string(req.body().size()) + "}");
-    res.status_code = 201;
-    return res;
-});
-
-// Serve a directory of static files
-server.serve_files("/", "./public");
 ```
 
----
+Path segments prefixed with `:` are captured automatically by the router and
+retrieved with `req.get_path("name")`. Query parameters use `req.get_query("name")`,
+and headers use `req.get_header("Name")` (case-insensitive).
 
-## C++ concepts covered
+## Security considerations
 
-**Sockets and systems programming**
-- `socket()`, `bind()`, `listen()`, `accept()`, `recv()`, `send()` — the full POSIX socket lifecycle
-- `SO_REUSEADDR` — why restarting a server immediately fails without it
-- `SO_RCVTIMEO` — read timeout to protect against slow-loris connections
-- `MSG_NOSIGNAL` — why `send()` on a closed socket kills your process without this flag
-- Byte order: `htons()` and why network byte order (big-endian) differs from x86
+- Header and body sizes are capped (8 KB / 1 MB) to bound memory use per request.
+- Static file paths are canonicalized and checked against the static root before
+  the file is opened, blocking `../../etc/passwd`-style traversal attempts.
+- `Content-Length` and `Connection` headers cannot be set manually on a `Response`,
+  preventing accidental or malicious response framing bugs.
+- Route handlers are wrapped in `try/catch` — an uncaught exception becomes a
+  `500`, not a crashed worker thread.
 
-**Concurrency**
-- `std::thread`, `std::mutex`, `std::condition_variable` — built from scratch, no thread-per-request
-- Why workers use `condition_variable::wait()` instead of spinning
-- Double-checked locking pattern for read-heavy shared state
-- `mutable` — how to lock a mutex in a `const` method
+## Known limitations
 
-**Modern C++**
-- `std::string_view` — non-owning string references; when to use instead of `const string&`
-- Move semantics — `std::move` in `Response` factories avoids copying large bodies
-- C++17 fold expressions `(oss << ... << args)` — the variadic logger in one line
-- `if constexpr` — compile-time branch to handle empty parameter packs
-- `std::filesystem` — path manipulation and atomic file writes via `rename()`
-- Structured bindings `auto& [key, val]` in range-for loops
+These are deliberate scope cuts for a from-scratch learning project, not oversights:
 
-**Design patterns**
-- Meyers singleton — thread-safe without a mutex on the instance itself
-- Value objects — `Request` is immutable after construction; handlers get `const Request&`
-- Friend classes — `RequestParser` and `Router` write private fields; handlers cannot
-- Factory methods — `Response::json()`, `Response::not_found()` guarantee consistent state
-- Separation of concerns — `shortener.cpp` has zero HTTP knowledge; `main.cpp` is the glue
+- No persistent connections — every request closes the socket after one response
+  (no `Connection: keep-alive` / pipelining support yet).
+- No TLS — HTTP only, no HTTPS.
+- Blocking I/O per worker thread, not an event loop (`epoll`/`io_uring`) — simpler
+  to reason about, but won't scale to tens of thousands of concurrent connections.
+- No chunked transfer-encoding on incoming requests (only `Content-Length`-based
+  bodies are read).
 
----
+## Roadmap
 
-## Design decisions
-
-**Why `std::string_view` for parameters we don't store, `std::string` by value for parameters we do?**
-
-`const string&` forces a heap allocation even for a string literal. `string_view` is a non-owning pointer + length — zero cost at the call site. When we do need to own the string (storing in a map, setting as `body`), taking by value lets the caller move a temporary in with zero copies.
-
-**Why a static library instead of a shared library?**
-
-Static linking bundles all the code directly into the app binary. There's no `.so` to manage, no runtime linker path to set, and Docker images are simpler. For a collection of demo apps this is the right tradeoff.
-
-**Why hand-roll the JSON instead of using a library?**
-
-The JSON we produce is simple enough that a string-building approach is 10 lines and has no failure modes. Adding a JSON library (nlohmann, RapidJSON) would be the right call for production code with complex nested structures.
-
-**Why first-match-wins routing instead of specificity-based?**
-
-Specificity rules (like Express.js) require scoring each route and sorting. First-match-wins is O(n) and completely predictable — if `/users/me` is registered before `/users/:id`, it always wins. The rule "register more specific routes first" is easy to remember and hard to get wrong.
-
----
-
-## Using as a library
-
-The server builds as `http_server_lib` (static). Any app in this monorepo can link against it:
-
-```cmake
-# In your app's CMakeLists.txt:
-target_link_libraries(my_app http_server_lib)
-# Automatically gets http_server/include/ on the include path.
-```
-
-See `apps/url_shortener/` for a working example — a URL shortener built on top of this server where the shortener itself has no knowledge of HTTP.
-
----
+- [ ] `Connection: keep-alive` support
+- [ ] `epoll`-based event loop as an alternative concurrency model
+- [ ] Middleware chain (logging, auth, CORS) ahead of route dispatch
+- [ ] TLS via OpenSSL
+- [ ] WebSocket upgrade support
+- [ ] Benchmark suite (`wrk` / `ab`) with results published in this README
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).
+
+## Author
+
+Built as a from-scratch systems programming project to understand the HTTP
+protocol and concurrent server design at the socket level, with no framework
+in between.

@@ -1,278 +1,168 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MyCppServer — HTTP server in C++17</title>
-  <link rel="stylesheet" href="/style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SFS — Server From Scratch</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-  <header class="hero">
-    <div class="container">
-      <div class="badge">C++17 &nbsp;·&nbsp; POSIX sockets &nbsp;·&nbsp; zero dependencies</div>
-      <h1>MyCppServer</h1>
-      <p class="hero-sub">
-        A multithreaded HTTP/1.1 server written from scratch in C++.<br>
-        Raw TCP sockets, a thread pool, request parsing, and a router — no libraries.
-      </p>
-      <div class="hero-stats">
-        <div class="stat"><span class="stat-n" id="stat-threads">—</span><span class="stat-l">worker threads</span></div>
-        <div class="stat-sep"></div>
-        <div class="stat"><span class="stat-n">~600</span><span class="stat-l">lines of code</span></div>
-        <div class="stat-sep"></div>
-        <div class="stat"><span class="stat-n">0</span><span class="stat-l">dependencies</span></div>
+<header class="topbar">
+  <span class="wordmark">SFS</span>
+  <span class="status" id="status-pill">
+    <span class="dot" aria-hidden="true"></span>
+    <span id="status-text">checking…</span>
+  </span>
+</header>
+
+<main>
+
+  <section class="hero">
+    <p class="eyebrow">C++17 · POSIX sockets · zero frameworks</p>
+    <h1>Server From Scratch</h1>
+    <p class="lede">
+      An HTTP/1.1 server built directly on raw sockets — the request parser,
+      router, and response serializer are all hand-written. No Boost.Asio,
+      no libuv, no HTTP library underneath. This page is being served by it
+      right now.
+    </p>
+  </section>
+
+  <section class="console" aria-labelledby="console-heading">
+    <p class="eyebrow" id="console-heading">try it live</p>
+
+    <div class="console-controls">
+      <button class="btn" data-path="/ping" data-method="GET">GET /ping</button>
+      <button class="btn" data-path="/info" data-method="GET">GET /info</button>
+      <div class="echo-row">
+        <span class="echo-label">GET /echo?msg=</span>
+        <input type="text" id="echo-input" placeholder="type something" aria-label="Message for /echo endpoint">
+        <button class="btn" id="echo-send">Send</button>
       </div>
     </div>
-  </header>
 
-  <main class="container">
+    <pre class="response-panel" id="response-panel" aria-live="polite"><code id="response-body">// click a button above to send a real request to this server</code></pre>
 
-    <section class="section">
-      <h2 class="section-title">How a request flows through the server</h2>
-      <div class="pipeline">
-        <div class="pipe-step">
-          <div class="pipe-icon">🔌</div>
-          <div class="pipe-label">TCP Socket</div>
-          <div class="pipe-desc"><code>accept()</code> on port 8080</div>
-        </div>
-        <div class="pipe-arrow">→</div>
-        <div class="pipe-step">
-          <div class="pipe-icon">⚙️</div>
-          <div class="pipe-label">Thread Pool</div>
-          <div class="pipe-desc">handed to an idle worker</div>
-        </div>
-        <div class="pipe-arrow">→</div>
-        <div class="pipe-step">
-          <div class="pipe-icon">📖</div>
-          <div class="pipe-label">Parser</div>
-          <div class="pipe-desc">method, path, headers, body</div>
-        </div>
-        <div class="pipe-arrow">→</div>
-        <div class="pipe-step">
-          <div class="pipe-icon">🗺️</div>
-          <div class="pipe-label">Router</div>
-          <div class="pipe-desc">pattern match → handler</div>
-        </div>
-        <div class="pipe-arrow">→</div>
-        <div class="pipe-step">
-          <div class="pipe-icon">📤</div>
-          <div class="pipe-label">Response</div>
-          <div class="pipe-desc">serialised via <code>send()</code></div>
-        </div>
-      </div>
-    </section>
+    <p class="hint">
+      Requests are relative — this only works when the page is actually served
+      by SFS (i.e. you're viewing this at <code>http://localhost:&lt;port&gt;</code>).
+    </p>
+  </section>
 
-    <section class="section">
-      <h2 class="section-title">Live endpoints — click to try</h2>
-      <p class="section-sub">Each button fires a real request to this server and shows the raw response.</p>
-
-      <div class="endpoints">
-
-        <div class="endpoint-card">
-          <div class="ep-header">
-            <span class="method get">GET</span>
-            <span class="ep-path">/ping</span>
-            <span class="ep-desc">Health check</span>
-          </div>
-          <p>Returns <code>pong</code>. Used by load balancers to verify the server is alive.</p>
-          <button class="try-btn" onclick="tryEndpoint('GET','/ping',null,'r-ping')">Try it</button>
-          <div id="r-ping" class="response hidden"></div>
-        </div>
-
-        <div class="endpoint-card">
-          <div class="ep-header">
-            <span class="method get">GET</span>
-            <span class="ep-path">/info</span>
-            <span class="ep-desc">Server metadata</span>
-          </div>
-          <p>Returns live JSON with server name and the number of active worker threads.</p>
-          <button class="try-btn" onclick="tryEndpoint('GET','/info',null,'r-info')">Try it</button>
-          <div id="r-info" class="response hidden"></div>
-        </div>
-
-        <div class="endpoint-card">
-          <div class="ep-header">
-            <span class="method get">GET</span>
-            <span class="ep-path">/echo?msg=…</span>
-            <span class="ep-desc">Query parameters</span>
-          </div>
-          <p>Demonstrates query string parsing. The server reads <code>req.query_params()</code> and echoes <code>msg</code> back.</p>
-          <div class="input-row">
-            <input id="echo-val" type="text" value="hello from browser" placeholder="Type a message">
-            <button class="try-btn" onclick="tryEcho()">Try it</button>
-          </div>
-          <div id="r-echo" class="response hidden"></div>
-        </div>
-
-        <div class="endpoint-card">
-          <div class="ep-header">
-            <span class="method get">GET</span>
-            <span class="ep-path">/users/:id</span>
-            <span class="ep-desc">Path parameters</span>
-          </div>
-          <p>The <code>:id</code> segment is captured at route-match time and placed in <code>req.path_params()</code>.</p>
-          <div class="input-row">
-            <input id="uid-val" type="text" value="42" placeholder="User ID">
-            <button class="try-btn" onclick="tryUser()">Try it</button>
-          </div>
-          <div id="r-user" class="response hidden"></div>
-        </div>
-
-        <div class="endpoint-card">
-          <div class="ep-header">
-            <span class="method post">POST</span>
-            <span class="ep-path">/users</span>
-            <span class="ep-desc">Request body</span>
-          </div>
-          <p>Demonstrates body reading. The parser uses <code>Content-Length</code> to know how many bytes to read from the socket.</p>
-          <div class="input-row">
-            <input id="post-val" type="text" value='{"name":"Alice"}' placeholder="JSON body">
-            <button class="try-btn" onclick="tryPost()">Try it</button>
-          </div>
-          <div id="r-post" class="response hidden"></div>
-        </div>
-
-        <div class="endpoint-card">
-          <div class="ep-header">
-            <span class="method del">DELETE</span>
-            <span class="ep-path">/users/:id</span>
-            <span class="ep-desc">204 No Content</span>
-          </div>
-          <p>Returns 204 — success with no response body. The correct HTTP status for a successful delete.</p>
-          <button class="try-btn" onclick="tryEndpoint('DELETE','/users/42',null,'r-del')">Try it</button>
-          <div id="r-del" class="response hidden"></div>
-        </div>
-
-      </div>
-    </section>
-
-    <section class="section">
-      <h2 class="section-title">What's inside</h2>
-      <div class="components">
-
-        <div class="comp-card">
-          <h3>Thread Pool</h3>
-          <p>Fixed <code>std::thread</code> workers share a queue protected by <code>std::mutex</code> and <code>std::condition_variable</code>. Workers sleep for free when idle. Spawning a thread per request costs ~10–50µs; pool workers pick up tasks in microseconds.</p>
-          <div class="comp-file">thread_pool.hpp / .cpp</div>
-        </div>
-
-        <div class="comp-card">
-          <h3>Request Parser</h3>
-          <p>Reads raw bytes from the socket in a loop — TCP delivers data in chunks, not messages. Parses the request line, headers, query string, and body. Rejects oversized headers and truncated bodies.</p>
-          <div class="comp-file">request.hpp / .cpp</div>
-        </div>
-
-        <div class="comp-card">
-          <h3>Router</h3>
-          <p>Stores <code>(method, pattern, handler)</code> triples. Matches paths segment-by-segment, capturing <code>:param</code> wildcards. Returns 405 when the path exists but the method doesn't — correct HTTP semantics.</p>
-          <div class="comp-file">router.hpp / .cpp</div>
-        </div>
-
-        <div class="comp-card">
-          <h3>Response Builder</h3>
-          <p><code>Content-Length</code> and <code>Connection</code> are auto-managed — <code>set_header()</code> rejects them to prevent duplicate headers. <code>status_text_for()</code> returns <code>std::string_view</code> into literals: zero allocation per call.</p>
-          <div class="comp-file">response.hpp / .cpp</div>
-        </div>
-
-        <div class="comp-card">
-          <h3>File Server</h3>
-          <p>Serves HTML, CSS, JS, images from disk. Falls back from the router on 404. Blocks path traversal (<code>../</code> attacks) by scanning segments. MIME type from extension so the browser renders, not downloads.</p>
-          <div class="comp-file">file_server.hpp / .cpp</div>
-        </div>
-
-        <div class="comp-card">
-          <h3>Logger</h3>
-          <p>Meyers singleton, thread-safe via <code>std::mutex</code>. Variadic template with a C++17 fold expression lets you pass any number of typed values. <code>__FILE__</code> and <code>__LINE__</code> captured at call site via macros.</p>
-          <div class="comp-file">logger.hpp / .cpp</div>
-        </div>
-
-      </div>
-    </section>
-
-    <section class="section">
-      <h2 class="section-title">curl cheat sheet</h2>
-      <pre class="code-block"><code><span class="cm"># Health check</span>
-curl http://localhost:8080/ping
-
-<span class="cm"># JSON metadata</span>
-curl http://localhost:8080/info
-
-<span class="cm"># Query parameters</span>
-curl "http://localhost:8080/echo?msg=hello"
-
-<span class="cm"># Path parameters</span>
-curl http://localhost:8080/users/42
-
-<span class="cm"># POST with a JSON body</span>
-curl -X POST http://localhost:8080/users \
-     -H "Content-Type: application/json" \
-     -d '{"name": "Alice"}'
-
-<span class="cm"># DELETE — expect 204 No Content</span>
-curl -s -o /dev/null -w "%{http_code}" \
-     -X DELETE http://localhost:8080/users/42
-
-<span class="cm"># See full response headers</span>
-curl -i http://localhost:8080/ping</code></pre>
-    </section>
-
-  </main>
-
-  <footer class="footer">
-    <div class="container">
-      Built with C++17 &nbsp;·&nbsp; POSIX sockets &nbsp;·&nbsp;
-      <code>std::thread</code> pool &nbsp;·&nbsp; no frameworks &nbsp;·&nbsp; no dependencies
+  <section class="features" aria-label="Architecture highlights">
+    <p class="eyebrow">architecture</p>
+    <div class="feature-grid">
+      <article class="card">
+        <h2>Thread pool</h2>
+        <p>One acceptor thread, a fixed pool of workers. Each connection is
+        enqueued and picked up by whichever worker is free — no thread spawned
+        per request.</p>
+      </article>
+      <article class="card">
+        <h2>Custom parser</h2>
+        <p>Reads the request line, headers, and body straight off the socket,
+        with bounded buffers so a malformed request can't exhaust memory.</p>
+      </article>
+      <article class="card">
+        <h2>Path-param router</h2>
+        <p>Routes like <code>/users/:id</code> are matched segment by segment.
+        Wrong method on a known path returns 405, not a generic 404.</p>
+      </article>
+      <article class="card">
+        <h2>Hardened file server</h2>
+        <p>Static files are resolved through a canonical-path check, so
+        directory-traversal attempts outside the public root are rejected.</p>
+      </article>
     </div>
-  </footer>
+  </section>
 
-  <script>
-    fetch('/info')
-      .then(r => r.json())
-      .then(d => { document.getElementById('stat-threads').textContent = d.worker_threads; })
-      .catch(() => {});
+  <section class="lifecycle" aria-label="Request lifecycle">
+    <p class="eyebrow">request lifecycle</p>
+    <pre class="flow"><code>accept() → enqueue() → worker thread → Router::dispatch() → Handler → Response::serialize() → send()</code></pre>
+  </section>
 
-    async function tryEndpoint(method, path, body, id) {
-      const el = document.getElementById(id);
-      el.className = 'response loading';
-      el.textContent = 'waiting…';
+</main>
 
-      try {
-        const opts = { method };
-        if (body) {
-          opts.body = body;
-          opts.headers = { 'Content-Type': 'application/json' };
-        }
-        const res  = await fetch(path, opts);
-        const text = await res.text();
+<footer>
+  <div class="badges">
+    <span>C++17</span>
+    <span>POSIX sockets</span>
+    <span>CMake</span>
+    <span>Multithreaded</span>
+  </div>
+  <p>Built from scratch — no third-party HTTP library used.</p>
+</footer>
 
-        el.className = 'response ' + (res.status < 400 ? 'ok' : 'err');
-        el.textContent =
-          `HTTP ${res.status} ${res.statusText}\n` +
-          `Content-Type: ${res.headers.get('content-type') ?? '—'}\n\n` +
-          (text.trim() || '(empty body)');
-      } catch {
-        el.className = 'response err';
-        el.textContent = 'Could not reach the server.';
-      }
+<script>
+(function () {
+  const panel = document.getElementById('response-body');
+  const statusPill = document.getElementById('status-pill');
+  const statusText = document.getElementById('status-text');
+
+  function renderResponse(method, path, res, bodyText) {
+    let headerLines = '';
+    res.headers.forEach((value, key) => {
+      headerLines += key + ': ' + value + '\n';
+    });
+    const statusLine = 'HTTP/1.1 ' + res.status + (res.statusText ? ' ' + res.statusText : '');
+    panel.textContent =
+      method + ' ' + path + '\n\n' +
+      statusLine + '\n' +
+      headerLines + '\n' +
+      bodyText;
+  }
+
+  function renderError(method, path) {
+    panel.textContent =
+      method + ' ' + path + '\n\n' +
+      '// request failed — make sure this page is being served by SFS\n' +
+      '// (open http://localhost:<port>/ instead of a local file)';
+  }
+
+  async function sendRequest(method, path) {
+    panel.textContent = method + ' ' + path + '\n\n// sending…';
+    try {
+      const res = await fetch(path, { method });
+      const bodyText = await res.text();
+      renderResponse(method, path, res, bodyText);
+    } catch (err) {
+      renderError(method, path);
     }
+  }
 
-    const tryEcho = () => {
-      const v = document.getElementById('echo-val').value || 'hello';
-      tryEndpoint('GET', `/echo?msg=${encodeURIComponent(v)}`, null, 'r-echo');
-    };
-    const tryUser = () => {
-      const v = document.getElementById('uid-val').value || '42';
-      tryEndpoint('GET', `/users/${encodeURIComponent(v)}`, null, 'r-user');
-    };
-    const tryPost = () => {
-      tryEndpoint('POST', '/users', document.getElementById('post-val').value, 'r-post');
-    };
+  document.querySelectorAll('.btn[data-path]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      sendRequest(btn.dataset.method, btn.dataset.path);
+    });
+  });
 
-    document.querySelectorAll('.input-row input').forEach(inp =>
-      inp.addEventListener('keydown', e => { if (e.key === 'Enter') inp.nextElementSibling.click(); })
-    );
-  </script>
+  document.getElementById('echo-send').addEventListener('click', () => {
+    const input = document.getElementById('echo-input');
+    const msg = encodeURIComponent(input.value || 'hello');
+    sendRequest('GET', '/echo?msg=' + msg);
+  });
+
+  document.getElementById('echo-input').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') document.getElementById('echo-send').click();
+  });
+
+  // Quiet liveness check against /ping for the status pill in the header
+  fetch('/ping').then(res => {
+    if (res.ok) {
+      statusPill.classList.add('online');
+      statusText.textContent = 'online';
+    } else {
+      statusText.textContent = 'unreachable';
+    }
+  }).catch(() => {
+    statusText.textContent = 'unreachable';
+  });
+})();
+</script>
 
 </body>
 </html>
