@@ -118,7 +118,8 @@ SFS/
 ├── utils/
 ├── build/
 ├── Dockerfile
-├── fly.toml
+├── render.yaml
+├── fly.toml          # optional — Fly.io no longer has a free tier, see Deploying
 ├── CMakeLists.txt
 └── README.md
 ```
@@ -242,30 +243,55 @@ docker run -p 8080:8080 sfs
 > Check the `BINARY_NAME` build arg in the `Dockerfile` — it must match
 > whatever executable name your `CMakeLists.txt` target actually produces.
 
-### Deploy to Fly.io
+### Deploy to Render (recommended — genuinely free, no credit card)
 
-Fly.io runs your container on a port you choose, with no code changes needed
-(the existing hardcoded port 8080 just works). A starter `fly.toml` is
-included.
+Render's free tier doesn't require a credit card and runs Dockerfiles
+natively. The trade-off: a free web service spins down after 15 minutes of
+inactivity, and the next request takes 30-60 seconds to wake it back up. For
+a portfolio/resume project that's a perfectly reasonable trade — just hit
+your own URL once before showing it to anyone.
+
+1. Push this repo to GitHub.
+2. On [render.com](https://render.com), **New → Web Service**, connect the repo.
+3. Environment: **Docker**. Instance type: **Free**.
+4. Deploy. Render builds the `Dockerfile` and gives you a public HTTPS URL.
+
+A `render.yaml` Blueprint is included if you'd rather configure it as code
+(Render dashboard → **New → Blueprint**) instead of clicking through the UI.
+
+`main.cpp` already reads the `PORT` environment variable Render injects
+(falling back to 8080 if unset), so no code changes are needed either way.
+
+**Keeping it awake for a demo:** a free uptime-monitoring service (e.g.
+UptimeRobot) pinging `/ping` every ~10 minutes will keep the service from
+sleeping, if you want it always responsive without paying.
+
+### Student option: a real always-on VPS for free
+
+If you're enrolled as a student, the
+[GitHub Student Developer Pack](https://education.github.com/pack) includes
+a **$200 DigitalOcean credit** (1 year) — enough to run a small droplet
+($4-6/month) for the better part of a year, with no cold starts at all
+since it's a real always-on VM rather than a sleeping container.
 
 ```bash
-brew install flyctl        # or: curl -L https://fly.io/install.sh | sh
-flyctl auth login
-flyctl apps create <your-app-name>   # update `app` in fly.toml to match
-flyctl deploy
+# On the droplet, after installing Docker:
+git clone <your-repo-url> sfs && cd sfs
+docker build -t sfs .
+docker run -d -p 80:8080 --restart unless-stopped sfs
 ```
 
-Fly.io builds the `Dockerfile`, ships it, and gives you a public HTTPS URL —
-that's where `benchmark.html` becomes genuinely useful, since you can now
-load-test a server that isn't on your own machine.
+`--restart unless-stopped` makes Docker bring the container back up
+automatically after a reboot — no systemd unit needed.
 
-### Alternative: Render
+### Alternative: Fly.io
 
-Render also runs arbitrary Dockerfiles, but **requires** your app to bind to
-the port given in the `$PORT` environment variable rather than a fixed one.
-`main.cpp` already reads `PORT` if it's set (falling back to 8080), so this
-works without further changes — just connect the repo in Render's dashboard,
-pick "Docker" as the environment, and deploy.
+Fly.io no longer has a free tier (it was removed in 2024 — new accounts get
+a 2-hour trial, then a credit card is required). Worth knowing about for
+later, multi-region apps, but not the free option to reach for as a student
+right now.
+
+
 
 ## Roadmap
 

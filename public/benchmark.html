@@ -87,6 +87,12 @@
       <code>ab</code> from a terminal instead. This is great for demoing
       correctness and realistic load, not for finding the absolute limit.
     </p>
+    <p class="hint">
+      Deployed on a free host like Render? The first request after 15
+      minutes of inactivity can take 30-60 seconds (cold start) — hit
+      <code>/ping</code> once yourself before running a benchmark, or that
+      single request will dominate every chart below.
+    </p>
   </section>
 
   <section class="results" id="results-section" aria-labelledby="results-heading" style="display:none;">
