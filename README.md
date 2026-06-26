@@ -243,66 +243,6 @@ docker run -p 8080:8080 sfs
 > Check the `BINARY_NAME` build arg in the `Dockerfile` — it must match
 > whatever executable name your `CMakeLists.txt` target actually produces.
 
-### Deploy to Render (recommended — genuinely free, no credit card)
-
-Render's free tier doesn't require a credit card and runs Dockerfiles
-natively. The trade-off: a free web service spins down after 15 minutes of
-inactivity, and the next request takes 30-60 seconds to wake it back up. For
-a portfolio/resume project that's a perfectly reasonable trade — just hit
-your own URL once before showing it to anyone.
-
-1. Push this repo to GitHub.
-2. On [render.com](https://render.com), **New → Web Service**, connect the repo.
-3. Environment: **Docker**. Instance type: **Free**.
-4. Deploy. Render builds the `Dockerfile` and gives you a public HTTPS URL.
-
-A `render.yaml` Blueprint is included if you'd rather configure it as code
-(Render dashboard → **New → Blueprint**) instead of clicking through the UI.
-
-`main.cpp` already reads the `PORT` environment variable Render injects
-(falling back to 8080 if unset), so no code changes are needed either way.
-
-**Keeping it awake for a demo:** a free uptime-monitoring service (e.g.
-UptimeRobot) pinging `/ping` every ~10 minutes will keep the service from
-sleeping, if you want it always responsive without paying.
-
-### Student option: a real always-on VPS for free
-
-If you're enrolled as a student, the
-[GitHub Student Developer Pack](https://education.github.com/pack) includes
-a **$200 DigitalOcean credit** (1 year) — enough to run a small droplet
-($4-6/month) for the better part of a year, with no cold starts at all
-since it's a real always-on VM rather than a sleeping container.
-
-```bash
-# On the droplet, after installing Docker:
-git clone <your-repo-url> sfs && cd sfs
-docker build -t sfs .
-docker run -d -p 80:8080 --restart unless-stopped sfs
-```
-
-`--restart unless-stopped` makes Docker bring the container back up
-automatically after a reboot — no systemd unit needed.
-
-### Alternative: Fly.io
-
-Fly.io no longer has a free tier (it was removed in 2024 — new accounts get
-a 2-hour trial, then a credit card is required). Worth knowing about for
-later, multi-region apps, but not the free option to reach for as a student
-right now.
-
-
-
-## Roadmap
-
-- [ ] `Connection: keep-alive` support
-- [ ] `epoll`-based event loop as an alternative concurrency model
-- [ ] Middleware chain (logging, auth, CORS) ahead of route dispatch
-- [ ] TLS via OpenSSL
-- [ ] WebSocket upgrade support
-- [x] Benchmark dashboard (`public/benchmark.html`) — done
-- [ ] Run a real `wrk`/`ab` load test against a deployed instance and publish the numbers here
-
 ## License
 
 MIT — see [LICENSE](LICENSE).
