@@ -119,7 +119,6 @@ SFS/
 ├── build/
 ├── Dockerfile
 ├── render.yaml
-├── fly.toml          # optional — Fly.io no longer has a free tier, see Deploying
 ├── CMakeLists.txt
 └── README.md
 ```

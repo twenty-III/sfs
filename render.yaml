@@ -1,0 +1,14 @@
+# render.yaml — Render Blueprint for SFS
+# Either use this for one-click deploys (Render dashboard → New → Blueprint),
+# or just create a Web Service manually and point it at this repo —
+# Render auto-detects the Dockerfile either way; this file isn't required.
+
+services:
+  - type: web
+    name: sfs-server
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    envVars:
+      - key: PORT
+        value: 8080
