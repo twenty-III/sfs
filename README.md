@@ -105,6 +105,7 @@ SFS/
 │   └── thread_pool.hpp
 ├── public/
 │   ├── index.html
+│   ├── benchmark.html
 │   └── style.css
 ├── src/
 │   ├── file_server.cpp
@@ -116,6 +117,8 @@ SFS/
 │   └── thread_pool.cpp
 ├── utils/
 ├── build/
+├── Dockerfile
+├── fly.toml
 ├── CMakeLists.txt
 └── README.md
 ```
@@ -199,6 +202,71 @@ These are deliberate scope cuts for a from-scratch learning project, not oversig
 - No chunked transfer-encoding on incoming requests (only `Content-Length`-based
   bodies are read).
 
+## Benchmarking
+
+`public/benchmark.html` is a load-testing dashboard served by SFS itself —
+open `http://localhost:8080/benchmark.html` (or your deployed URL) to use it.
+
+- Fires real `fetch()` requests at a configurable concurrency and total count,
+  against any path on the server (defaults to `/ping`).
+- Reports throughput (req/s), success/failure counts, and latency percentiles
+  (p50 / p95 / p99 / max), plus a per-request scatter plot and a latency
+  histogram — all hand-rolled SVG, no charting library.
+- Same-origin by default, so there's no CORS configuration needed. You *can*
+  point it at a different origin, but that target would need to send
+  `Access-Control-Allow-Origin` headers itself.
+
+**Honest caveat:** browsers cap concurrent connections per origin (around 6
+for HTTP/1.1), so this won't show you the server's true ceiling at high
+concurrency settings — it's a correctness/demo tool, not a substitute for a
+real load generator. For an actual ceiling, run from a terminal instead:
+
+```bash
+wrk -t4 -c100 -d10s http://localhost:8080/ping
+# or
+ab -n 5000 -c 100 http://localhost:8080/ping
+```
+
+## Deploying
+
+SFS binds directly to a raw POSIX socket, so it deploys cleanly as a plain
+Docker container on any platform that can run one and expose a port.
+
+### Build & run locally with Docker
+
+```bash
+docker build -t sfs .
+docker run -p 8080:8080 sfs
+```
+
+> Check the `BINARY_NAME` build arg in the `Dockerfile` — it must match
+> whatever executable name your `CMakeLists.txt` target actually produces.
+
+### Deploy to Fly.io
+
+Fly.io runs your container on a port you choose, with no code changes needed
+(the existing hardcoded port 8080 just works). A starter `fly.toml` is
+included.
+
+```bash
+brew install flyctl        # or: curl -L https://fly.io/install.sh | sh
+flyctl auth login
+flyctl apps create <your-app-name>   # update `app` in fly.toml to match
+flyctl deploy
+```
+
+Fly.io builds the `Dockerfile`, ships it, and gives you a public HTTPS URL —
+that's where `benchmark.html` becomes genuinely useful, since you can now
+load-test a server that isn't on your own machine.
+
+### Alternative: Render
+
+Render also runs arbitrary Dockerfiles, but **requires** your app to bind to
+the port given in the `$PORT` environment variable rather than a fixed one.
+`main.cpp` already reads `PORT` if it's set (falling back to 8080), so this
+works without further changes — just connect the repo in Render's dashboard,
+pick "Docker" as the environment, and deploy.
+
 ## Roadmap
 
 - [ ] `Connection: keep-alive` support
@@ -206,7 +274,8 @@ These are deliberate scope cuts for a from-scratch learning project, not oversig
 - [ ] Middleware chain (logging, auth, CORS) ahead of route dispatch
 - [ ] TLS via OpenSSL
 - [ ] WebSocket upgrade support
-- [ ] Benchmark suite (`wrk` / `ab`) with results published in this README
+- [x] Benchmark dashboard (`public/benchmark.html`) — done
+- [ ] Run a real `wrk`/`ab` load test against a deployed instance and publish the numbers here
 
 ## License
 

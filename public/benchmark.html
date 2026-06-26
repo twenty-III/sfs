@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SFS — Benchmark Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <span class="wordmark">SFS</span>
+  <div class="topbar-right">
+    <nav class="nav">
+      <a href="index.html">Home</a>
+      <a href="benchmark.html" class="active">Benchmark</a>
+    </nav>
+    <span class="status" id="status-pill">
+      <span class="dot" aria-hidden="true"></span>
+      <span id="status-text">checking…</span>
+    </span>
+  </div>
+</header>
+
+<main>
+
+  <section class="hero">
+    <p class="eyebrow">load testing console</p>
+    <h1>How fast is it, really?</h1>
+    <p class="lede">
+      This fires real HTTP requests from your browser at SFS and measures
+      wall-clock latency end-to-end — TCP handshake, request, response — the
+      same thing a real client experiences. No server-side instrumentation,
+      no fake numbers.
+    </p>
+  </section>
+
+  <section class="config" aria-labelledby="config-heading">
+    <p class="eyebrow" id="config-heading">configure</p>
+
+    <div class="config-grid">
+      <div class="field">
+        <label for="target-input">Target origin</label>
+        <input type="text" id="target-input" placeholder="this page's origin">
+      </div>
+      <div class="field">
+        <label for="path-input">Path</label>
+        <input type="text" id="path-input" value="/ping">
+      </div>
+      <div class="field">
+        <label for="total-input">Total requests</label>
+        <input type="number" id="total-input" value="200" min="1" max="5000">
+      </div>
+      <div class="field">
+        <label for="concurrency-input">Concurrency</label>
+        <input type="number" id="concurrency-input" value="10" min="1" max="200">
+      </div>
+    </div>
+
+    <div class="console-controls" style="margin-bottom: 1.25rem;">
+      <button class="btn" data-fill="/ping">/ping</button>
+      <button class="btn" data-fill="/info">/info</button>
+      <button class="btn" data-fill="/echo?msg=load-test">/echo</button>
+    </div>
+
+    <div class="run-row">
+      <button class="btn-primary" id="run-btn">Run benchmark</button>
+      <button class="btn-ghost" id="stop-btn" disabled>Stop</button>
+    </div>
+
+    <div class="progress-track">
+      <div class="progress-fill" id="progress-fill"></div>
+    </div>
+    <p class="progress-label" id="progress-label">idle</p>
+
+    <p class="hint">
+      Leave <strong>target origin</strong> blank to benchmark this server
+      (recommended — same-origin, no CORS issues). Testing a different
+      origin only works if that server sends
+      <code>Access-Control-Allow-Origin</code> headers. Also: browsers cap
+      concurrent connections per origin (~6 for HTTP/1.1), so very high
+      concurrency values here won't reflect true server-side parallelism —
+      for finding the server's actual ceiling, run <code>wrk</code> or
+      <code>ab</code> from a terminal instead. This is great for demoing
+      correctness and realistic load, not for finding the absolute limit.
+    </p>
+  </section>
+
+  <section class="results" id="results-section" aria-labelledby="results-heading" style="display:none;">
+    <p class="eyebrow" id="results-heading">results</p>
+
+    <div class="stat-grid">
+      <div class="stat-card"><div class="label">Total</div><div class="value" id="stat-total">–</div></div>
+      <div class="stat-card highlight"><div class="label">Success</div><div class="value" id="stat-success">–</div></div>
+      <div class="stat-card"><div class="label">Failed</div><div class="value" id="stat-failed">–</div></div>
+      <div class="stat-card"><div class="label">Duration</div><div class="value" id="stat-duration">–</div></div>
+      <div class="stat-card highlight"><div class="label">Req / sec</div><div class="value" id="stat-throughput">–</div></div>
+      <div class="stat-card"><div class="label">Avg latency</div><div class="value" id="stat-avg">–</div></div>
+      <div class="stat-card"><div class="label">p50</div><div class="value" id="stat-p50">–</div></div>
+      <div class="stat-card"><div class="label">p95</div><div class="value" id="stat-p95">–</div></div>
+      <div class="stat-card"><div class="label">p99</div><div class="value" id="stat-p99">–</div></div>
+      <div class="stat-card"><div class="label">Max</div><div class="value" id="stat-max">–</div></div>
+    </div>
+
+    <div class="chart-panel">
+      <h3>latency per request</h3>
+      <div id="scatter-svg"></div>
+    </div>
+
+    <div class="chart-panel">
+      <h3>latency distribution</h3>
+      <div id="histogram-svg"></div>
+    </div>
+
+    <div class="chart-panel" style="padding-bottom: 0.9rem;">
+      <h3>request log</h3>
+      <div class="log-panel" id="log-panel"></div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="badges">
+    <span>C++17</span>
+    <span>POSIX sockets</span>
+    <span>CMake</span>
+    <span>Multithreaded</span>
+  </div>
+  <p>Benchmark console — zero dependencies, just <code>fetch()</code> and SVG.</p>
+</footer>
+
+<script>
+(function () {
+  const els = {
+    target: document.getElementById('target-input'),
+    path: document.getElementById('path-input'),
+    total: document.getElementById('total-input'),
+    concurrency: document.getElementById('concurrency-input'),
+    runBtn: document.getElementById('run-btn'),
+    stopBtn: document.getElementById('stop-btn'),
+    progressFill: document.getElementById('progress-fill'),
+    progressLabel: document.getElementById('progress-label'),
+    resultsSection: document.getElementById('results-section'),
+    logPanel: document.getElementById('log-panel'),
+  };
+
+  let isRunning = false;
+  let cancelled = false;
+  let results = [];
+
+  document.querySelectorAll('.btn[data-fill]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      els.path.value = btn.dataset.fill;
+    });
+  });
+
+  function setRunningUI(running) {
+    isRunning = running;
+    els.runBtn.disabled = running;
+    els.stopBtn.disabled = !running;
+    els.runBtn.textContent = running ? 'Running…' : 'Run benchmark';
+  }
+
+  function logRow(record) {
+    const row = document.createElement('div');
+    row.className = 'row' + (record.ok ? '' : ' fail');
+    const statusLabel = record.ok ? record.status : (record.status || 'ERR');
+    row.innerHTML = '<span class="idx">#' + (record.index + 1) + '</span>' +
+      '<span>' + statusLabel + '</span>' +
+      '<span>' + record.latency.toFixed(1) + 'ms</span>';
+    els.logPanel.appendChild(row);
+    els.logPanel.scrollTop = els.logPanel.scrollHeight;
+    while (els.logPanel.children.length > 150) {
+      els.logPanel.removeChild(els.logPanel.firstChild);
+    }
+  }
+
+  function computeStats(results, durationMs) {
+    const latencies = results.map(r => r.latency).slice().sort((a, b) => a - b);
+    const n = latencies.length;
+    const successCount = results.filter(r => r.ok).length;
+    const failCount = n - successCount;
+    const durationSec = durationMs / 1000;
+    const throughput = durationSec > 0 ? n / durationSec : 0;
+    const pct = (p) => {
+      if (n === 0) return 0;
+      return latencies[Math.min(n - 1, Math.floor(p * n))];
+    };
+    const avg = n ? latencies.reduce((a, b) => a + b, 0) / n : 0;
+    return {
+      total: n, successCount, failCount, durationSec, throughput, avg,
+      p50: pct(0.5), p95: pct(0.95), p99: pct(0.99),
+      min: n ? latencies[0] : 0, max: n ? latencies[n - 1] : 0,
+    };
+  }
+
+  function ms(v) { return v.toFixed(1) + 'ms'; }
+
+  function renderStats(stats) {
+    document.getElementById('stat-total').textContent = stats.total;
+    document.getElementById('stat-success').textContent = stats.successCount;
+    document.getElementById('stat-failed').textContent = stats.failCount;
+    document.getElementById('stat-duration').textContent = stats.durationSec.toFixed(2) + 's';
+    document.getElementById('stat-throughput').textContent = stats.throughput.toFixed(1);
+    document.getElementById('stat-avg').textContent = ms(stats.avg);
+    document.getElementById('stat-p50').textContent = ms(stats.p50);
+    document.getElementById('stat-p95').textContent = ms(stats.p95);
+    document.getElementById('stat-p99').textContent = ms(stats.p99);
+    document.getElementById('stat-max').textContent = ms(stats.max);
+  }
+
+  function renderScatter(data) {
+    const svgEl = document.getElementById('scatter-svg');
+    const W = 680, H = 200, PAD = 30;
+    if (data.length === 0) { svgEl.innerHTML = ''; return; }
+
+    let points = data;
+    const MAX_POINTS = 300;
+    if (points.length > MAX_POINTS) {
+      const step = points.length / MAX_POINTS;
+      const sampled = [];
+      for (let i = 0; i < MAX_POINTS; i++) sampled.push(points[Math.floor(i * step)]);
+      points = sampled;
+    }
+
+    const maxLatency = Math.max.apply(null, data.map(r => r.latency)) || 1;
+    const n = data.length;
+
+    let circles = '';
+    points.forEach(p => {
+      const x = PAD + (p.index / Math.max(n - 1, 1)) * (W - 2 * PAD);
+      const y = H - PAD - (p.latency / maxLatency) * (H - 2 * PAD - 10);
+      const color = p.ok ? '#1F7A4D' : '#C9605F';
+      circles += '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="2.5" fill="' + color + '" opacity="0.75"/>';
+    });
+
+    let gridY = '';
+    [0, 0.25, 0.5, 0.75, 1].forEach(f => {
+      const y = H - PAD - f * (H - 2 * PAD - 10);
+      const label = (maxLatency * f).toFixed(0);
+      gridY += '<line x1="' + PAD + '" y1="' + y.toFixed(1) + '" x2="' + (W - PAD) + '" y2="' + y.toFixed(1) + '" stroke="#DADDD3" stroke-width="1"/>' +
+        '<text x="' + (PAD - 6) + '" y="' + y.toFixed(1) + '" font-size="9" fill="#5C6266" text-anchor="end" dominant-baseline="middle">' + label + '</text>';
+    });
+
+    svgEl.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg">' + gridY + circles + '</svg>';
+  }
+
+  function renderHistogram(data) {
+    const svgEl = document.getElementById('histogram-svg');
+    const W = 680, H = 200, PAD = 30;
+    if (data.length === 0) { svgEl.innerHTML = ''; return; }
+
+    const latencies = data.map(r => r.latency);
+    const min = Math.min.apply(null, latencies);
+    const max = Math.max.apply(null, latencies);
+    const BUCKETS = 14;
+    const range = Math.max(max - min, 0.001);
+    const bucketSize = range / BUCKETS;
+    const counts = new Array(BUCKETS).fill(0);
+    latencies.forEach(l => {
+      let idx = Math.floor((l - min) / bucketSize);
+      if (idx >= BUCKETS) idx = BUCKETS - 1;
+      if (idx < 0) idx = 0;
+      counts[idx]++;
+    });
+    const maxCount = Math.max.apply(null, counts) || 1;
+
+    const barWidth = (W - 2 * PAD) / BUCKETS;
+    let bars = '';
+    counts.forEach((c, i) => {
+      const barHeight = (c / maxCount) * (H - 2 * PAD - 10);
+      const x = PAD + i * barWidth;
+      const y = H - PAD - barHeight;
+      bars += '<rect x="' + (x + 1).toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + (barWidth - 2).toFixed(1) + '" height="' + barHeight.toFixed(1) + '" fill="#1F7A4D" opacity="0.85"/>';
+    });
+
+    const axisLine = '<line x1="' + PAD + '" y1="' + (H - PAD) + '" x2="' + (W - PAD) + '" y2="' + (H - PAD) + '" stroke="#DADDD3" stroke-width="1"/>';
+    const minLabel = '<text x="' + PAD + '" y="' + (H - PAD + 16) + '" font-size="9" fill="#5C6266">' + min.toFixed(1) + 'ms</text>';
+    const maxLabel = '<text x="' + (W - PAD) + '" y="' + (H - PAD + 16) + '" font-size="9" fill="#5C6266" text-anchor="end">' + max.toFixed(1) + 'ms</text>';
+
+    svgEl.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg">' + axisLine + bars + minLabel + maxLabel + '</svg>';
+  }
+
+  async function runBenchmark() {
+    if (isRunning) return;
+
+    const targetRaw = els.target.value.trim();
+    const path = els.path.value.trim() || '/ping';
+    const total = Math.max(1, Math.min(5000, parseInt(els.total.value, 10) || 200));
+    const concurrency = Math.max(1, Math.min(200, parseInt(els.concurrency.value, 10) || 10));
+    const base = targetRaw ? targetRaw.replace(/\/$/, '') : '';
+    const url = base + path;
+    const logEveryN = Math.max(1, Math.floor(total / 150));
+
+    results = [];
+    cancelled = false;
+    setRunningUI(true);
+    els.logPanel.innerHTML = '';
+    els.resultsSection.style.display = 'none';
+
+    let sent = 0;
+    let completed = 0;
+    const startTime = performance.now();
+
+    function updateProgress() {
+      const pct = Math.round((completed / total) * 100);
+      els.progressFill.style.width = pct + '%';
+      const failedCount = results.filter(r => !r.ok).length;
+      els.progressLabel.textContent = completed + ' / ' + total + ' sent · ' + failedCount + ' failed';
+    }
+
+    async function worker() {
+      while (!cancelled) {
+        const myIndex = sent;
+        if (myIndex >= total) return;
+        sent++;
+        const t0 = performance.now();
+        let ok = false, status = 0;
+        try {
+          const res = await fetch(url, { cache: 'no-store' });
+          status = res.status;
+          ok = res.ok;
+          await res.text();
+        } catch (e) {
+          ok = false;
+          status = 0;
+        }
+        const latency = performance.now() - t0;
+        completed++;
+        const record = { index: myIndex, latency, ok, status };
+        results.push(record);
+        if (!ok || completed % logEveryN === 0) logRow(record);
+        updateProgress();
+      }
+    }
+
+    const workers = [];
+    for (let i = 0; i < Math.min(concurrency, total); i++) workers.push(worker());
+    await Promise.all(workers);
+
+    const durationMs = performance.now() - startTime;
+    setRunningUI(false);
+    els.progressLabel.textContent = 'done — ' + completed + ' / ' + total + ' sent';
+
+    const stats = computeStats(results, durationMs);
+    els.resultsSection.style.display = '';
+    renderStats(stats);
+    renderScatter(results);
+    renderHistogram(results);
+  }
+
+  els.runBtn.addEventListener('click', runBenchmark);
+  els.stopBtn.addEventListener('click', () => { cancelled = true; });
+
+  // Quiet liveness check for the status pill
+  const statusPill = document.getElementById('status-pill');
+  const statusText = document.getElementById('status-text');
+  fetch('/ping').then(res => {
+    if (res.ok) {
+      statusPill.classList.add('online');
+      statusText.textContent = 'online';
+    } else {
+      statusText.textContent = 'unreachable';
+    }
+  }).catch(() => { statusText.textContent = 'unreachable'; });
+})();
+</script>
+
+</body>
+</html>
