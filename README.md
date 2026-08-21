@@ -7,7 +7,6 @@ parser, router, and response serializer are all hand-written.
 ![C++](https://img.shields.io/badge/C%2B%2B-17-blue)
 ![Build](https://img.shields.io/badge/build-CMake-informational)
 ![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS-lightgrey)
-![License](https://img.shields.io/badge/license-MIT-green)
 
 ---
 
@@ -243,10 +242,6 @@ docker run -p 8080:8080 sfs
 
 > Check the `BINARY_NAME` build arg in the `Dockerfile` — it must match
 > whatever executable name your `CMakeLists.txt` target actually produces.
-
-## License
-
-MIT — see [LICENSE](LICENSE).
 
 ## Author
 
