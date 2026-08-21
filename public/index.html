@@ -156,7 +156,7 @@
     if (e.key === 'Enter') document.getElementById('echo-send').click();
   });
 
-  // Quiet liveness check against /ping for the status pill in the header
+
   fetch('/ping').then(res => {
     if (res.ok) {
       statusPill.classList.add('online');

@@ -363,7 +363,7 @@
   els.runBtn.addEventListener('click', runBenchmark);
   els.stopBtn.addEventListener('click', () => { cancelled = true; });
 
-  // Quiet liveness check for the status pill
+
   const statusPill = document.getElementById('status-pill');
   const statusText = document.getElementById('status-text');
   fetch('/ping').then(res => {
