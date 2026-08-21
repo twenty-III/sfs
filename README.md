@@ -165,6 +165,8 @@ Then open **http://localhost:8080** — that's `public/index.html`, served by SF
 | GET    | `/ping`  | Liveness check — returns `pong`                            |
 | GET    | `/info`  | Returns server metadata as JSON (language, thread count)   |
 | GET    | `/echo`  | Echoes back the `msg` query parameter                      |
+| GET    | `/tasks` | Returns an in-memory list of tasks as JSON                 |
+| POST   | `/tasks` | Adds a new task to the in-memory list (send body as text)  |
 | GET    | `/*`     | Falls through to the static file server (`public/`)        |
 
 ### Defining your own routes

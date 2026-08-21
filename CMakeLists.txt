@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(http_server CXX)
+project(sfs CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -15,6 +15,6 @@ include_directories(include utils)
 
 file(GLOB_RECURSE SOURCES "src/*.cpp")
 
-add_executable(http_server ${SOURCES})
+add_executable(sfs ${SOURCES})
 
-target_link_libraries(http_server pthread)
+target_link_libraries(sfs pthread)

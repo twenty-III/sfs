@@ -5,6 +5,8 @@
 #include <sstream>
 #include <iostream>
 #include <cstdlib>
+#include <vector>
+#include <mutex>
 
 int main()
 {
@@ -46,6 +48,34 @@ int main()
         auto it = req.query_params().find("msg");
         auto body = (it == req.query_params().end()) ? "no msg= query param" : it->second;
         return Response::ok(body); });
+
+    static std::vector<std::string> tasks = {"Learn C++", "Build a server"};
+    static std::mutex tasks_mutex;
+
+    server.get("/tasks", [](const Request &) {
+        std::lock_guard<std::mutex> lock(tasks_mutex);
+        std::ostringstream json;
+        json << "[";
+        for (size_t i = 0; i < tasks.size(); ++i) {
+            json << "\"" << tasks[i] << "\"";
+            if (i < tasks.size() - 1) json << ", ";
+        }
+        json << "]";
+        return Response::json(json.str());
+    });
+
+    server.post("/tasks", [](const Request &req) {
+        std::string task = req.body();
+        if (task.empty()) {
+            return Response::bad_request("Empty task");
+        }
+        std::lock_guard<std::mutex> lock(tasks_mutex);
+        tasks.push_back(task);
+        Response res;
+        res.set_status(201);
+        res.set_body("Task added");
+        return res;
+    });
 
     server.listen();
 
